@@ -34,7 +34,20 @@ interface LaneDetailPageProps {
 }
 
 export const LaneDetailPage = ({ laneId, onBack }: LaneDetailPageProps) => {
-  const { lanes } = useBowlingStore();
+  const {
+    lanes,
+    setLaneTheme,
+    addPlayerToGame,
+    pauseOrder,
+    resumeOrder,
+    extendOrder,
+    finishOrder,
+    closeToIdle,
+    resetLane,
+    toggleBumpers,
+    triggerSweep,
+    triggerReset,
+  } = useBowlingStore();
   const [activeTab, setActiveTab] = useState<'Основное' | 'Timing'>('Основное');
   const [sweepMs, setSweepMs] = useState(1500);
 

@@ -24,6 +24,9 @@ async function startServer() {
   // Mount REST API
   app.use('/api', apiRouter);
 
+  // Serve IAdea XMP-320 Scoring Display static files
+  app.use('/scoring_display', express.static(path.resolve(__dirname, 'frontend/scoring_display')));
+
   // Health endpoint
   app.get('/health', (_req, res) => {
     res.json({

@@ -56,8 +56,12 @@ export class MqttService {
             this.handleIncomingMessage(topic, data);
         } catch (e) { console.error('[MQTT] Parse error', e); }
     });
-    this.client.on('error', (e) => {
-      console.error('[MQTT] Connection error:', e.message);
+    this.client.on('error', (e: any) => {
+      if (e.code === 'ECONNREFUSED' || e.message?.includes('ECONNREFUSED')) {
+        console.warn(`[MQTT] Broker unavailable at ${this.brokerHost}:${this.brokerPort} (Running in Standalone Simulation Mode)`);
+      } else {
+        console.warn('[MQTT] Connection warning:', e.message);
+      }
       this.isConnected = false;
     });
     this.client.on('close', () => {
