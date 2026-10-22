@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Remix BowlingHub</title>
+    <meta name="description" content="Единый программный комплекс управления боулинг-центром: движок USBC, MQTT-интеграция оборудования ESP32, панель оператора и интерактивный экран дорожек VIDIBI." />
+    <meta property="og:title" content="Remix BowlingHub" />
+    <meta property="og:description" content="Единый программный комплекс управления боулинг-центром: движок USBC, MQTT-интеграция оборудования ESP32, панель оператора и интерактивный экран дорожек VIDIBI." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      // Ignore Vite HMR / WebSocket runner errors in preview environment
+      window.addEventListener('error', function(event) {
+        if (
+          event.message &&
+          (event.message.includes('WebSocket') ||
+           event.message.includes('@vite/client') ||
+           event.message.includes('createWebSocketModuleRunnerTransport'))
+        ) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
+      });
+      window.addEventListener('unhandledrejection', function(event) {
+        if (
+          event.reason &&
+          (String(event.reason).includes('WebSocket') ||
+           String(event.reason).includes('@vite/client') ||
+           String(event.reason).includes('createWebSocketModuleRunnerTransport'))
+        ) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
