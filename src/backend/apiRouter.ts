@@ -87,6 +87,7 @@ apiRouter.post('/lanes/:id/order/start', (req, res) => {
     : [playerService.createPlayer(guest_name || 'Player 1')];
 
   gameService.startNewGame(lane, playerList);
+  mqttService.sendLaneStart(laneId);
   mqttService.triggerPinspotterSweep(laneId);
 
   res.json({ success: true, order, lane });
@@ -198,6 +199,14 @@ apiRouter.patch('/orders/:id/duration', (req, res) => {
     }
     return res.status(500).json({ error: 'internal_error', message });
   }
+});
+
+apiRouter.post('/lanes/:id/stop', (req, res) => {
+  const laneId = parseInt(req.params.id, 10);
+  const lane = hubStore.getLane(laneId);
+  if (!lane) return res.status(404).json({ success: false, error: 'Lane not found' });
+  mqttService.sendLaneStop(laneId);
+  res.json({ success: true, lane });
 });
 
 apiRouter.post('/lanes/:id/close-to-idle', (req, res) => {
@@ -363,6 +372,38 @@ apiRouter.post('/lanes/:id/pinspotter/reset', (req, res) => {
 });
 
 // --- Real Hardware & MQTT Endpoints (Replaced Stubs) ---
+
+apiRouter.get('/fbox/devices', (_req, res) => {
+  const devices = mqttService.getConnectedDevices();
+  res.json({ success: true, data: devices });
+});
+
+// FBox Device Endpoints
+apiRouter.get('/fbox/devices/:id', (req, res) => {
+  const device = mqttService.getConnectedDevices().find(d => d.device_id === req.params.id);
+  if (!device) return res.status(404).json({ success: false, error: 'Device not found' });
+  res.json({ success: true, data: device });
+});
+
+apiRouter.post('/fbox/devices/:id/reboot', (req, res) => {
+  const result = mqttService.sendReboot(req.params.id);
+  res.json(result);
+});
+
+apiRouter.post('/fbox/devices/:id/ping', (req, res) => {
+  const result = mqttService.sendPing(req.params.id);
+  res.json(result);
+});
+
+apiRouter.post('/fbox/devices/:id/ota', (req, res) => {
+  const { url } = req.body;
+  const result = mqttService.sendOta(req.params.id, url);
+  res.json(result);
+});
+
+apiRouter.post('/fbox/devices/:id/config', (req, res) => {
+  res.status(501).json({ success: false, error: 'firmware v2.0.3 does not support remote config' });
+});
 
 apiRouter.get('/devices', (_req, res) => {
   const devices = mqttService.getConnectedDevices();

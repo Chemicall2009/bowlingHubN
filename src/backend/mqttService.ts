@@ -399,6 +399,24 @@ export class MqttService {
     });
   }
 
+  public sendLaneStart(laneId: number): void {
+    this.publishCommand(`lane/${laneId}/control/command`, {
+      command: 'LANE_START',
+      event_id: `lanestart-${Date.now()}`,
+      lane_id: String(laneId),
+      ts: Date.now(),
+    });
+  }
+
+  public sendLaneStop(laneId: number): void {
+    this.publishCommand(`lane/${laneId}/control/command`, {
+      command: 'LANE_STOP',
+      event_id: `lanestop-${Date.now()}`,
+      lane_id: String(laneId),
+      ts: Date.now(),
+    });
+  }
+
   public setBumper(laneId: number, isUp: boolean): void {
     this.publishCommand(`lane/${laneId}/control/command`, {
       command: isUp ? 'bumper_up' : 'bumper_down',

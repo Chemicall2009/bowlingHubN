@@ -108,6 +108,18 @@ export const KioskContainer: React.FC<KioskContainerProps> = ({ laneId }) => {
         celebration={celebration}
         onDismiss={dismissCelebration}
       />
+      
+      {/* FBox Status Indicator */}
+      <div className="absolute top-4 right-4 z-50 flex items-center gap-2 px-3 py-1.5 bg-black/50 backdrop-blur-sm rounded-lg border border-white/10 text-[10px] font-mono">
+        {(() => {
+          const fbox = useBowlingStore.getState().devices.find(d => d.lane_id === lane.id && d.role === 'pinspotter_ctl');
+          return fbox?.status === 'online' ? (
+            <span className="text-emerald-400">● FBox ✓ Lane {lane.id} · RSSI {fbox.rssi} · {fbox.firmware_version}</span>
+          ) : (
+            <span className="text-rose-400">● FBox ✗ offline</span>
+          );
+        })()}
+      </div>
     </div>
   );
 };

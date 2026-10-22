@@ -278,6 +278,28 @@ export const LaneDetailPage: React.FC<LaneDetailPageProps> = ({ laneId, onBack }
               Управление дорожкой и заказом
             </h3>
 
+            {/* FBox Status Control */}
+            <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Wifi className="w-4 h-4 text-purple-400" />
+                <span className="text-xs font-bold text-white">FBox</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => fetch(`/api/lanes/${lane.id}/start`, { method: 'POST' })}
+                  className="px-2 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-lg text-[10px] font-bold"
+                >
+                  СТАРТ
+                </button>
+                <button
+                  onClick={() => fetch(`/api/lanes/${lane.id}/stop`, { method: 'POST' })}
+                  className="px-2 py-1 bg-rose-500/20 text-rose-300 border border-rose-500/40 rounded-lg text-[10px] font-bold"
+                >
+                  СТОП
+                </button>
+              </div>
+            </div>
+
             {lane.current_order ? (
               <div className="flex flex-col gap-3">
                 {/* Карточка оставшегося времени */}

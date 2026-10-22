@@ -87,15 +87,35 @@ export const EquipmentPage: React.FC = () => {
 
               {/* Calibration & OTA */}
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-zinc-800">
-                <button className="py-2 px-3 bg-zinc-900 border border-zinc-700 rounded-lg text-xs font-semibold text-white hover:border-cyan-500 transition-colors">
-                  Калибровка камеры
+                <button 
+                  onClick={() => fetch(`/api/fbox/devices/${fbox?.device_id}/ping`, { method: 'POST' })}
+                  disabled={!fbox || fbox.status !== 'online'}
+                  className="py-2 px-3 bg-zinc-900 border border-zinc-700 rounded-lg text-xs font-semibold text-white hover:border-cyan-500 transition-colors disabled:opacity-50"
+                >
+                  Ping
                 </button>
                 <button 
-                  onClick={() => fbox && otaUpdateDevice(fbox.device_id, otaFirmwareUrl)}
+                  onClick={() => fetch(`/api/fbox/devices/${fbox?.device_id}/reboot`, { method: 'POST' })}
+                  disabled={!fbox || fbox.status !== 'online'}
+                  className="py-2 px-3 bg-zinc-900 border border-zinc-700 rounded-lg text-xs font-semibold text-white hover:border-amber-500 transition-colors disabled:opacity-50"
+                >
+                  Reboot
+                </button>
+                <button 
+                  onClick={() => {
+                    const url = prompt("Введите URL прошивки:");
+                    if (url) fetch(`/api/fbox/devices/${fbox?.device_id}/ota`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url}) });
+                  }}
                   disabled={!fbox || fbox.status !== 'online'}
                   className="py-2 px-3 bg-purple-600/20 border border-purple-500/30 rounded-lg text-xs font-semibold text-purple-300 hover:bg-purple-600/30 transition-colors disabled:opacity-50"
                 >
-                  OTA Обновление FBox
+                  OTA Update
+                </button>
+                <button 
+                  onClick={() => alert("Firmware v2.0.3 does not support remote config")}
+                  className="py-2 px-3 bg-zinc-900 border border-zinc-700 rounded-lg text-xs font-semibold text-white hover:border-rose-500 transition-colors"
+                >
+                  Config
                 </button>
               </div>
             </div>
