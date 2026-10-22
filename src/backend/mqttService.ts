@@ -180,32 +180,33 @@ export class MqttService {
     }
   }
 
-  private handleSensorA(laneId: number, payload: Record<string, unknown>): void {
-    const ts = typeof payload.ts === 'number' ? payload.ts : Date.now();
-    const eventId = payload.event_id || 'ev-a';
-    console.log(`[MQTT] Sensor A triggered on Lane ${laneId} (event: ${eventId})`);
-
+  private handleSensorA(laneId: number, _payload: Record<string, unknown>): void {
+    // Use server-side time for DB/scoring engine to avoid NTP issues on ESP32
+    const now = Date.now();
     const laneSensors = this.sensorTimestamps.get(laneId) || {};
-    laneSensors.lastSensorATs = ts;
+    laneSensors.lastSensorATs = now;
     this.sensorTimestamps.set(laneId, laneSensors);
   }
 
-  private handleSensorB(laneId: number, payload: Record<string, unknown>): void {
-    const ts = typeof payload.ts === 'number' ? payload.ts : Date.now();
+  private handleSensorB(laneId: number, _payload: Record<string, unknown>): void {
+    const now = Date.now();
     const laneSensors = this.sensorTimestamps.get(laneId) || {};
-    laneSensors.lastSensorBTs = ts;
-    this.sensorTimestamps.set(laneId, laneSensors);
-
-    let speedMps = 7.14; // Default standard speed
-    let dtMs = 210;
-
-    if (laneSensors.lastSensorATs && ts > laneSensors.lastSensorATs) {
-      dtMs = ts - laneSensors.lastSensorATs;
-      // 1.5m trap distance
-      speedMps = Number((1.5 / (dtMs / 1000)).toFixed(2));
+    
+    if (!laneSensors.lastSensorATs) {
+      console.warn(`[MQTT] Sensor B triggered without Sensor A on Lane ${laneId}`);
+      return;
     }
 
+    const dtMs = now - laneSensors.lastSensorATs;
+    // 1.5m trap distance
+    const speedMps = Number((1.5 / (dtMs / 1000)).toFixed(2));
     const speedKmh = Number((speedMps * 3.6).toFixed(1));
+
+    // Validate speed (2-45 km/h range)
+    if (speedKmh < 2 || speedKmh > 45) {
+      console.warn(`[MQTT] Invalid ball speed on lane ${laneId}: ${speedKmh} km/h (dt: ${dtMs}ms)`);
+      return; // Discard invalid event
+    }
 
     // Broadcast flat ball_speed event
     wsHub.broadcast({
@@ -216,6 +217,10 @@ export class MqttService {
       speed_kmh: speedKmh,
       dt_ms: dtMs,
     });
+    
+    // Clear sensor A timestamp after valid B
+    laneSensors.lastSensorATs = undefined;
+    this.sensorTimestamps.set(laneId, laneSensors);
   }
 
   private handleFoul(laneId: number, payload: Record<string, unknown>): void {
