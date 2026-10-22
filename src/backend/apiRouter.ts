@@ -87,6 +87,7 @@ apiRouter.post('/lanes/:id/order/start', (req, res) => {
     : [playerService.createPlayer(guest_name || 'Player 1')];
 
   gameService.startNewGame(lane, playerList);
+  mqttService.triggerPinspotterSweep(laneId);
 
   res.json({ success: true, order, lane });
 });
@@ -204,6 +205,7 @@ apiRouter.post('/lanes/:id/close-to-idle', (req, res) => {
   const lane = hubStore.getLane(laneId);
   if (!lane) return res.status(404).json({ success: false, error: 'Lane not found' });
   orderService.closeToIdle(lane);
+  mqttService.triggerPinspotterReset(laneId);
   res.json({ success: true, lane });
 });
 

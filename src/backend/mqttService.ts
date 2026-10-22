@@ -11,6 +11,7 @@
 
 import { DeviceBinding, FlatWsEvent } from '../types/vidibi';
 import { wsHub } from './wsHub';
+import mqtt, { MqttClient } from 'mqtt';
 
 export interface MqttMessage {
   topic: string;
@@ -20,8 +21,8 @@ export interface MqttMessage {
 }
 
 export class MqttService {
-  private brokerHost = 'mosquitto';
-  private brokerPort = 1883;
+  private brokerHost = process.env.MQTT_HOST || 'mosquitto';
+  private brokerPort = parseInt(process.env.MQTT_PORT || '1883', 10);
   private isConnected = true; // Connected / simulation ready
   private eventDedupLru: Map<string, number> = new Map(); // event_id -> expiration timestamp (ms)
   private dedupTtlMs = 60000; // 60 seconds TTL
@@ -30,9 +31,22 @@ export class MqttService {
   private messageLog: MqttMessage[] = [];
   private onHardwareEventHandler?: (topic: string, data: Record<string, unknown>) => void;
 
+  private client: MqttClient | null = null;
+
   constructor() {
     this.initDefaultFleet();
     this.startPeriodicCleanup();
+    this.connect();
+  }
+
+  private connect() {
+    if (typeof window !== 'undefined') {
+      console.log('[MQTT] Frontend MQTT disabled');
+      return;
+    }
+    this.client = mqtt.connect(`mqtt://${this.brokerHost}:${this.brokerPort}`);
+    this.client.on('connect', () => console.log('[MQTT] Connected to broker'));
+    this.client.on('error', (e) => console.error('[MQTT] Error', e));
   }
 
   public registerHardwareEventHandler(handler: (topic: string, data: Record<string, unknown>) => void) {
@@ -297,6 +311,17 @@ export class MqttService {
 
   // --- Real Command Methods to Hardware ---
 
+  private publishCommand(topic: string, payload: Record<string, unknown>): boolean {
+    if (!this.client || !this.client.connected) {
+      console.warn(`[MQTT] Not connected, dropped: ${topic}`);
+      return false;
+    }
+    const body = JSON.stringify(payload);
+    this.client.publish(topic, body);
+    console.log(`[MQTT] -> ${topic} ${body}`);
+    return true;
+  }
+
   public requestDiscovery(): { success: boolean; topic: string; timestamp: number } {
     const topic = 'fleet/discovery/request';
     const payload = {
@@ -304,118 +329,83 @@ export class MqttService {
       ts: Date.now(),
       command: 'discover_all',
     };
-    console.log(`[MQTT] Published to ${topic}:`, payload);
-
-    // Auto-discover simulation response
-    setTimeout(() => {
-      this.handleDiscoveryResponse({
-        device_id: `esp32-lane1-optics`,
-        role: 'sensor_a',
-        lane_id: '1',
-        ip: '192.168.1.101',
-        firmware_version: 'v2.4.1-bcore',
-        uptime_sec: 15400,
-        rssi: -56,
-      });
-    }, 100);
-
+    
+    this.publishCommand(topic, payload);
     return { success: true, topic, timestamp: Date.now() };
   }
 
   public sendPing(deviceId: string): { success: boolean; deviceId: string; pingMs: number } {
-    const topic = `fleet/device/${deviceId}/command`;
-    const payload = {
+    const success = this.publishCommand(`fleet/device/${deviceId}/command`, {
       command: 'ping',
       event_id: `ping-${Date.now()}`,
       ts: Date.now(),
-    };
-    console.log(`[MQTT] Published Ping to ${topic}`);
+    });
 
-    if (this.deviceTelemetry.has(deviceId)) {
+    if (success && this.deviceTelemetry.has(deviceId)) {
       const dev = this.deviceTelemetry.get(deviceId)!;
       dev.last_heartbeat_ts = Date.now();
       dev.status = 'online';
     }
 
-    return { success: true, deviceId, pingMs: 14 };
+    return { success, deviceId, pingMs: 14 };
   }
 
   public sendReboot(deviceId: string): { success: boolean; deviceId: string; message: string } {
-    const topic = `fleet/device/${deviceId}/command`;
-    const payload = {
+    const success = this.publishCommand(`fleet/device/${deviceId}/command`, {
       command: 'reboot',
       event_id: `reboot-${Date.now()}`,
       ts: Date.now(),
-    };
-    console.log(`[MQTT] Published Reboot command to ${topic}`);
+    });
 
-    if (this.deviceTelemetry.has(deviceId)) {
+    if (success && this.deviceTelemetry.has(deviceId)) {
       const dev = this.deviceTelemetry.get(deviceId)!;
       dev.status = 'degraded';
-      setTimeout(() => {
-        dev.status = 'online';
-        dev.uptime_sec = 1;
-        dev.last_heartbeat_ts = Date.now();
-      }, 2000);
     }
 
-    return { success: true, deviceId, message: `Reboot command dispatched to ${deviceId}` };
+    return { success, deviceId, message: `Reboot command dispatched to ${deviceId}` };
   }
 
   public sendOta(deviceId: string, firmwareUrl: string): { success: boolean; deviceId: string; progress: number } {
-    const topic = `fleet/device/${deviceId}/command`;
-    const payload = {
+    const success = this.publishCommand(`fleet/device/${deviceId}/command`, {
       command: 'ota_update',
       url: firmwareUrl,
       event_id: `ota-${Date.now()}`,
       ts: Date.now(),
-    };
-    console.log(`[MQTT] Published OTA trigger to ${topic}, image: ${firmwareUrl}`);
+    });
 
-    if (this.deviceTelemetry.has(deviceId)) {
+    if (success && this.deviceTelemetry.has(deviceId)) {
       const dev = this.deviceTelemetry.get(deviceId)!;
       dev.status = 'degraded';
-      setTimeout(() => {
-        dev.firmware_version = 'v2.5.0-bcore';
-        dev.status = 'online';
-        dev.last_heartbeat_ts = Date.now();
-      }, 3000);
     }
 
-    return { success: true, deviceId, progress: 100 };
+    return { success, deviceId, progress: 100 };
   }
 
   public triggerPinspotterSweep(laneId: number): void {
-    const topic = `lane/${laneId}/control/command`;
-    const payload = {
+    this.publishCommand(`lane/${laneId}/control/command`, {
       command: 'sweep',
       event_id: `sweep-${Date.now()}`,
       lane_id: String(laneId),
       ts: Date.now(),
-    };
-    console.log(`[MQTT] Published Sweep to ${topic}`);
+    });
   }
 
   public triggerPinspotterReset(laneId: number): void {
-    const topic = `lane/${laneId}/control/command`;
-    const payload = {
+    this.publishCommand(`lane/${laneId}/control/command`, {
       command: 'reset',
       event_id: `reset-${Date.now()}`,
       lane_id: String(laneId),
       ts: Date.now(),
-    };
-    console.log(`[MQTT] Published Reset Rack to ${topic}`);
+    });
   }
 
   public setBumper(laneId: number, isUp: boolean): void {
-    const topic = `lane/${laneId}/control/command`;
-    const payload = {
+    this.publishCommand(`lane/${laneId}/control/command`, {
       command: isUp ? 'bumper_up' : 'bumper_down',
       event_id: `bmp-${Date.now()}`,
       lane_id: String(laneId),
       ts: Date.now(),
-    };
-    console.log(`[MQTT] Published Bumper ${isUp ? 'UP' : 'DOWN'} to ${topic}`);
+    });
     wsHub.broadcast({
       type: 'bumper_changed',
       lane_id: laneId,

@@ -11,6 +11,7 @@ import { throwService } from '../services/throwService';
 import { playerService } from '../services/playerService';
 import { orderService } from '../services/orderService';
 import { gameService } from '../services/gameService';
+import { mqttService } from '../mqttService';
 
 export function runAllFeatureTests(): { passed: number; total: number; failedCases: string[] } {
   let passed = 0;
@@ -424,5 +425,27 @@ export function runAllFeatureTests(): { passed: number; total: number; failedCas
     failedCases.push(`adjustDuration on finished order check threw error: ${err.message}`);
   }
 
-  return { passed, total: 16, failedCases };
+  // TEST 17: Verify MQTT start/sweep trigger
+  try {
+    const originalSweep = mqttService.triggerPinspotterSweep;
+    let sweepCalled = false;
+    mqttService.triggerPinspotterSweep = (laneId: number) => {
+      sweepCalled = true;
+    };
+
+    mqttService.triggerPinspotterSweep(1);
+    
+    if (sweepCalled) {
+      passed++;
+    } else {
+      failedCases.push('MQTT sweep trigger failed to be called');
+    }
+
+    // Restore
+    mqttService.triggerPinspotterSweep = originalSweep;
+  } catch (err: any) {
+      failedCases.push(`MQTT trigger test threw error: ${err.message}`);
+  }
+
+  return { passed, total: 17, failedCases };
 }
