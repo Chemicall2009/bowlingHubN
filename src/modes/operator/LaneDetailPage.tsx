@@ -25,6 +25,7 @@ import {
   Trash2,
   Check,
   X,
+  Wifi,
 } from 'lucide-react';
 
 interface LaneDetailPageProps {

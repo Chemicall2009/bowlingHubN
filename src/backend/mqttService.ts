@@ -44,6 +44,7 @@ export class MqttService {
       console.log('[MQTT] Frontend MQTT disabled');
       return;
     }
+    console.log(`[MQTT] Attempting to connect to mqtt://${this.brokerHost}:${this.brokerPort}`);
     this.client = mqtt.connect(`mqtt://${this.brokerHost}:${this.brokerPort}`);
     this.client.on('connect', () => console.log('[MQTT] Connected to broker'));
     this.client.on('error', (e) => console.error('[MQTT] Error', e));
