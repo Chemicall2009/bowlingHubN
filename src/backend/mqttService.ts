@@ -21,7 +21,7 @@ export interface MqttMessage {
 }
 
 export class MqttService {
-  private brokerHost = process.env.MQTT_HOST || 'mosquitto';
+  private brokerHost = process.env.MQTT_HOST || 'localhost';
   private brokerPort = parseInt(process.env.MQTT_PORT || '1883', 10);
   private isConnected = true; // Connected / simulation ready
   private eventDedupLru: Map<string, number> = new Map(); // event_id -> expiration timestamp (ms)
@@ -39,15 +39,55 @@ export class MqttService {
     this.connect();
   }
 
+  private shotReadyHistory = new Map<string, ShotReadyEvent[]>();
+  
   private connect() {
-    if (typeof window !== 'undefined') {
-      console.log('[MQTT] Frontend MQTT disabled');
-      return;
-    }
-    console.log(`[MQTT] Attempting to connect to mqtt://${this.brokerHost}:${this.brokerPort}`);
     this.client = mqtt.connect(`mqtt://${this.brokerHost}:${this.brokerPort}`);
-    this.client.on('connect', () => console.log('[MQTT] Connected to broker'));
-    this.client.on('error', (e) => console.error('[MQTT] Error', e));
+    this.client.on('connect', () => {
+      console.log('[MQTT] Connected to broker');
+      this.isConnected = true;
+      // Subscriptions
+      this.client?.subscribe('lane/+/sensor/shot_ready');
+      this.client?.subscribe('lane/+/control/command');
+    });
+    this.client.on('message', (topic, payload) => {
+        try {
+            const data = JSON.parse(payload.toString());
+            this.handleIncomingMessage(topic, data);
+        } catch (e) { console.error('[MQTT] Parse error', e); }
+    });
+    this.client.on('error', (e) => {
+      console.error('[MQTT] Connection error:', e.message);
+      this.isConnected = false;
+    });
+    this.client.on('close', () => {
+      this.isConnected = false;
+    });
+  }
+
+  private handleShotReady(laneId: number, payload: any): void {
+     const data: ShotReadyEvent = {
+       type: 'shot_ready',
+       lane_id: String(laneId),
+       ts: payload.ts,
+       speed_kph: payload.speed_kph,
+       elapsed_ms: payload.elapsed_ms,
+       source: payload.source,
+       t_sweep_ms: payload.t_sweep_ms,
+     };
+     
+     console.log(`[MQTT] shot_ready lane=${laneId} speed=${data.speed_kph} elapsed=${data.elapsed_ms}ms source=${data.source}`);
+
+     wsHub.broadcast(data);
+     
+     const history = this.shotReadyHistory.get(String(laneId)) || [];
+     history.unshift(data);
+     if (history.length > 20) history.pop();
+     this.shotReadyHistory.set(String(laneId), history);
+  }
+
+  public getShotReadyHistory(laneId: string): ShotReadyEvent[] {
+    return this.shotReadyHistory.get(laneId) || [];
   }
 
   public registerHardwareEventHandler(handler: (topic: string, data: Record<string, unknown>) => void) {
@@ -175,6 +215,8 @@ export class MqttService {
       this.handleSensorA(laneId, payload);
     } else if (topic.includes('/sensor/ball_b')) {
       this.handleSensorB(laneId, payload);
+    } else if (topic.includes('/sensor/shot_ready')) {
+      this.handleShotReady(laneId, payload);
     } else if (topic.includes('/sensor/foul')) {
       this.handleFoul(laneId, payload);
     } else if (topic.includes('/cv/pins')) {

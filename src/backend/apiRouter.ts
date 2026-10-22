@@ -405,6 +405,35 @@ apiRouter.post('/fbox/devices/:id/config', (req, res) => {
   res.status(501).json({ success: false, error: 'firmware v2.0.3 does not support remote config' });
 });
 
+// --- Camera Calibration & Timing ---
+apiRouter.get('/lanes/:id/sweep_timing', (req, res) => {
+  const laneId = req.params.id;
+  // TODO: Get from device telemetry or DB
+  res.json({ success: true, data: { sweep_ms: 1500, source: 'default' } });
+});
+
+apiRouter.post('/lanes/:id/sweep_timing', (req, res) => {
+  const laneId = parseInt(req.params.id, 10);
+  const { sweep_ms } = req.body;
+  if (sweep_ms < 1000 || sweep_ms > 2500) {
+    return res.status(400).json({ success: false, error: 'sweep_ms out of range [1000,2500]' });
+  }
+  mqttService.publishCommand(`lane/${laneId}/control/command`, {
+    command: 'CONFIG_SET',
+    sweep_ms: sweep_ms,
+    event_id: `cfgsweep-${Date.now()}`,
+    lane_id: String(laneId),
+    ts: Date.now(),
+  });
+  res.json({ success: true, applied: sweep_ms });
+});
+
+apiRouter.get('/lanes/:id/shot_ready_history', (req, res) => {
+  const laneId = req.params.id;
+  const history = mqttService.getShotReadyHistory(laneId);
+  res.json({ success: true, data: history });
+});
+
 apiRouter.get('/devices', (_req, res) => {
   const devices = mqttService.getConnectedDevices();
   res.json({ success: true, count: devices.length, data: devices });

@@ -24,7 +24,7 @@ export interface BowlingHubState {
   mqttLogs: Record<string, unknown>[];
   recentEvents: FlatWsEvent[];
   isLoading: boolean;
-  activeTab: 'dashboard' | 'lane_detail' | 'equipment' | 'settings' | 'reports';
+  activeTab: 'dashboard' | 'lane_detail' | 'equipment' | 'settings' | 'reports' | 'calibration';
 
   // Состояние киоска
   kioskLaneId: number;
@@ -33,7 +33,7 @@ export interface BowlingHubState {
 
   // Действия - Оператор
   setSelectedLaneId: (id: number) => void;
-  setActiveTab: (tab: 'dashboard' | 'lane_detail' | 'equipment' | 'settings' | 'reports') => void;
+  setActiveTab: (tab: 'dashboard' | 'lane_detail' | 'equipment' | 'settings' | 'reports' | 'calibration') => void;
   refreshLanes: () => void;
   startOrder: (
     laneId: number,

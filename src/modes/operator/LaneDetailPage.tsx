@@ -33,26 +33,15 @@ interface LaneDetailPageProps {
   onBack: () => void;
 }
 
-export const LaneDetailPage: React.FC<LaneDetailPageProps> = ({ laneId, onBack }) => {
-  const {
-    lanes,
-    pauseOrder,
-    resumeOrder,
-    extendOrder,
-    finishOrder,
-    closeToIdle,
-    resetLane,
-    toggleBumpers,
-    triggerSweep,
-    triggerReset,
-    setLaneTheme,
-    addPlayerToGame,
-    renamePlayer,
-    removePlayer,
-  } = useBowlingStore();
+export const LaneDetailPage = ({ laneId, onBack }: LaneDetailPageProps) => {
+  const { lanes } = useBowlingStore();
+  const [activeTab, setActiveTab] = useState<'Основное' | 'Timing'>('Основное');
+  const [sweepMs, setSweepMs] = useState(1500);
 
   const lane = lanes.find(l => l.id === laneId) || lanes[0];
   const theme = VIDIBI_THEMES[lane.active_theme] || VIDIBI_THEMES.midnight_oled;
+
+  // ... (rest of the component)
 
   // Модальные окна
   const [scoreModalData, setScoreModalData] = useState<{
@@ -132,6 +121,12 @@ export const LaneDetailPage: React.FC<LaneDetailPageProps> = ({ laneId, onBack }
               ))}
             </select>
           </div>
+          
+          <div className="flex items-center gap-1 p-1 bg-zinc-900 rounded-xl border border-zinc-800">
+            {['Основное', 'Timing'].map(tab => (
+                <button key={tab} className={`px-3 py-1 text-xs rounded-lg ${activeTab === tab ? 'bg-cyan-500 text-black' : 'text-zinc-400'}`} onClick={() => setActiveTab(tab as any)}>{tab}</button>
+            ))}
+          </div>
 
           {/* Открыть киоск в новой вкладке */}
           <a
@@ -150,99 +145,113 @@ export const LaneDetailPage: React.FC<LaneDetailPageProps> = ({ laneId, onBack }
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Левая часть: Счёт и симулятор */}
         <div className="lg:col-span-2 flex flex-col gap-6">
-          {/* Текущая партия */}
-          {lane.current_game ? (() => {
-            const activePlayers = lane.current_game.players.filter(p => p.status !== 'removed');
-            const activePlayer = lane.current_game.players[lane.current_game.active_player_index] || activePlayers[0] || lane.current_game.players[0];
-            const activePlayerDisplayIndex = activePlayers.findIndex(p => p.id === activePlayer?.id);
+          {activeTab === 'Основное' ? (
+            <>
+              {/* Текущая партия */}
+              {lane.current_game ? (() => {
+                const activePlayers = lane.current_game.players.filter(p => p.status !== 'removed');
+                const activePlayer = lane.current_game.players[lane.current_game.active_player_index] || activePlayers[0] || lane.current_game.players[0];
+                const activePlayerDisplayIndex = activePlayers.findIndex(p => p.id === activePlayer?.id);
 
-            // R5: Calculate total score across all games in current order/session
-            const sessionTotalScores: Record<string, number> = {};
-            lane.history_games.forEach(hg => {
-              hg.players.forEach(p => {
-                const pScore = p.total_score + (p.handicap || 0);
-                sessionTotalScores[p.id] = (sessionTotalScores[p.id] || 0) + pScore;
-                if (p.name) {
-                  sessionTotalScores[p.name] = (sessionTotalScores[p.name] || 0) + pScore;
-                }
-              });
-            });
-            lane.current_game.players.forEach(p => {
-              const pScore = p.total_score + (p.handicap || 0);
-              sessionTotalScores[p.id] = (sessionTotalScores[p.id] || 0) + pScore;
-              if (p.name) {
-                sessionTotalScores[p.name] = (sessionTotalScores[p.name] || 0) + pScore;
-              }
-            });
+                // R5: Calculate total score across all games in current order/session
+                const sessionTotalScores: Record<string, number> = {};
+                lane.history_games.forEach(hg => {
+                  hg.players.forEach(p => {
+                    const pScore = p.total_score + (p.handicap || 0);
+                    sessionTotalScores[p.id] = (sessionTotalScores[p.id] || 0) + pScore;
+                    if (p.name) {
+                      sessionTotalScores[p.name] = (sessionTotalScores[p.name] || 0) + pScore;
+                    }
+                  });
+                });
+                lane.current_game.players.forEach(p => {
+                  const pScore = p.total_score + (p.handicap || 0);
+                  sessionTotalScores[p.id] = (sessionTotalScores[p.id] || 0) + pScore;
+                  if (p.name) {
+                    sessionTotalScores[p.name] = (sessionTotalScores[p.name] || 0) + pScore;
+                  }
+                });
 
-            return (
-              <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 shadow-xl">
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-bold uppercase tracking-wider text-white">
-                      Партия {lane.current_game.game_number} · Протокол счёта USBC
-                    </h2>
-                    <span className="text-[11px] text-zinc-400 font-mono">
-                      (Кликните ячейку или нажмите «Коррекция»)
-                    </span>
+                return (
+                  <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 shadow-xl">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-sm font-bold uppercase tracking-wider text-white">
+                          Партия {lane.current_game.game_number} · Протокол счёта USBC
+                        </h2>
+                        <span className="text-[11px] text-zinc-400 font-mono">
+                          (Кликните ячейку или нажмите «Коррекция»)
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            if (activePlayer) {
+                              setScoreModalData({
+                                player: activePlayer,
+                                frameIndex: Math.min(activePlayer.current_frame_index || 0, 9),
+                                rollIndex: Math.max(activePlayer.current_roll_index || 0, 0),
+                              });
+                            }
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 rounded-xl text-xs font-bold transition-colors shadow-sm"
+                          title="Ручная коррекция любого фрейма"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                          <span>Ручная коррекция</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Управление списком игроков */}
+                    <div className="mb-4">
+                      <PlayerList
+                        laneId={lane.id}
+                        players={lane.current_game.players}
+                        activePlayerIndex={activePlayerDisplayIndex !== -1 ? activePlayerDisplayIndex : 0}
+                        onAddPlayer={(name, hdc) => addPlayerToGame(lane.id, name, hdc)}
+                      />
+                    </div>
+
+                    {/* Сетка USBC */}
+                    <ScoreGrid
+                      players={activePlayers}
+                      activePlayerIndex={activePlayerDisplayIndex !== -1 ? activePlayerDisplayIndex : 0}
+                      theme={theme}
+                      interactive={true}
+                      onFrameClick={handleScoreCellClick}
+                      sessionTotalScores={sessionTotalScores}
+                    />
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        if (activePlayer) {
-                          setScoreModalData({
-                            player: activePlayer,
-                            frameIndex: Math.min(activePlayer.current_frame_index || 0, 9),
-                            rollIndex: Math.max(activePlayer.current_roll_index || 0, 0),
-                          });
-                        }
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 rounded-xl text-xs font-bold transition-colors shadow-sm"
-                      title="Ручная коррекция любого фрейма"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                      <span>Ручная коррекция</span>
-                    </button>
-                  </div>
+                );
+              })() : (
+                <div className="p-8 rounded-2xl bg-zinc-950 border border-zinc-800 text-center flex flex-col items-center justify-center">
+                  <p className="text-sm text-zinc-400 mb-4">На {lane.name} нет активной игры</p>
+                  <button
+                    onClick={() => setIsStartOrderOpen(true)}
+                    className="px-6 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/20 flex items-center gap-2"
+                  >
+                    <Play className="w-4 h-4 fill-current" />
+                    <span>Открыть сессию и начать игру</span>
+                  </button>
                 </div>
+              )}
 
-                {/* Управление списком игроков */}
-                <div className="mb-4">
-                  <PlayerList
-                    laneId={lane.id}
-                    players={lane.current_game.players}
-                    activePlayerIndex={activePlayerDisplayIndex !== -1 ? activePlayerDisplayIndex : 0}
-                    onAddPlayer={(name, hdc) => addPlayerToGame(lane.id, name, hdc)}
-                  />
+              {/* Интерактивный симулятор бросков и датчиков */}
+              <InteractiveHardwareSim laneId={lane.id} />
+            </>
+          ) : (
+            <div className="p-6 bg-zinc-950 rounded-2xl border border-zinc-800">
+                <h2 className="text-xl font-black text-white mb-4">Настройки тайминга</h2>
+                <div className="p-4 bg-zinc-900 rounded-xl mb-4">
+                    <label className="block text-sm text-zinc-300 mb-2">Задержка гарда (T_sweep_ms): {sweepMs} ms</label>
+                    <input type="range" min="1000" max="2500" step="50" value={sweepMs} onChange={(e) => setSweepMs(Number(e.target.value))} className="w-full mb-4" />
+                    <button onClick={() => fetch(`/api/lanes/${lane.id}/sweep_timing`, {method: 'POST', body: JSON.stringify({sweep_ms: sweepMs}), headers:{'Content-Type': 'application/json'}})} className="bg-cyan-500 px-4 py-2 rounded-lg text-black font-bold">Сохранить</button>
                 </div>
-
-                {/* Сетка USBC */}
-                <ScoreGrid
-                  players={activePlayers}
-                  activePlayerIndex={activePlayerDisplayIndex !== -1 ? activePlayerDisplayIndex : 0}
-                  theme={theme}
-                  interactive={true}
-                  onFrameClick={handleScoreCellClick}
-                  sessionTotalScores={sessionTotalScores}
-                />
-              </div>
-            );
-          })() : (
-            <div className="p-8 rounded-2xl bg-zinc-950 border border-zinc-800 text-center flex flex-col items-center justify-center">
-              <p className="text-sm text-zinc-400 mb-4">На {lane.name} нет активной игры</p>
-              <button
-                onClick={() => setIsStartOrderOpen(true)}
-                className="px-6 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/20 flex items-center gap-2"
-              >
-                <Play className="w-4 h-4 fill-current" />
-                <span>Открыть сессию и начать игру</span>
-              </button>
+                {/* TODO: Timing table */}
             </div>
           )}
-
-          {/* Интерактивный симулятор бросков и датчиков */}
-          <InteractiveHardwareSim laneId={lane.id} />
         </div>
 
         {/* Правая часть: Пиндек и управление сессией */}

@@ -171,6 +171,16 @@ export class PinVisionEngine {
   }
 
   /**
+   * Validate if frame is in guard position based on background ROI variance
+   */
+  public validateFrameGuard(roiBrightness: number[], threshold = 30): boolean {
+    // Check if background variance is low (stable)
+    const mean = roiBrightness.reduce((a, b) => a + b, 0) / roiBrightness.length;
+    const stdDev = Math.sqrt(roiBrightness.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b, 0) / roiBrightness.length);
+    return stdDev < threshold;
+  }
+
+  /**
    * Predict pin standing array [1..10] given simulated or detected ROI white/color luminance
    */
   public evaluatePinBitmask(

@@ -3,6 +3,7 @@ import { useBowlingStore } from '../../shared/store/bowlingStore';
 import { DashboardPage } from './DashboardPage';
 import { LaneDetailPage } from './LaneDetailPage';
 import { EquipmentPage } from './EquipmentPage';
+import { CalibrationPage } from './CalibrationPage';
 import { SettingsPage } from './SettingsPage';
 import { ReportsPage } from './ReportsPage';
 import {
@@ -12,6 +13,7 @@ import {
   BarChart3,
   ExternalLink,
   Layers,
+  Camera,
 } from 'lucide-react';
 
 export const OperatorLayout: React.FC = () => {
@@ -94,6 +96,18 @@ export const OperatorLayout: React.FC = () => {
             <BarChart3 className="w-3.5 h-3.5" />
             <span>Отчёты смены</span>
           </button>
+          
+          <button
+            onClick={() => setActiveTab('calibration')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+              activeTab === 'calibration'
+                ? 'bg-cyan-500 text-black shadow-md shadow-cyan-500/20'
+                : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+            }`}
+          >
+            <Camera className="w-3.5 h-3.5" />
+            <span>Калибровка</span>
+          </button>
 
           <button
             onClick={() => setActiveTab('settings')}
@@ -140,6 +154,8 @@ export const OperatorLayout: React.FC = () => {
         {activeTab === 'settings' && <SettingsPage />}
 
         {activeTab === 'reports' && <ReportsPage />}
+
+        {activeTab === 'calibration' && <CalibrationPage />}
       </main>
 
       {/* Подвал с системной информацией */}

@@ -248,7 +248,18 @@ export type WsEventType =
   | 'lane_state_sync'
   | 'duration_changed'
   | 'wait_for_shot'
-  | 'cv_trigger';
+  | 'cv_trigger'
+  | 'shot_ready';
+
+export interface ShotReadyEvent {
+  type: 'shot_ready';
+  lane_id: string;
+  ts: number;
+  speed_kph: number;
+  elapsed_ms: number;
+  source: 'virtual' | 'physical';
+  t_sweep_ms: number;
+}
 
 export interface PhaseChangedEvent {
   type: 'phase_changed';
